@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>כיף בכיף 2.0 - פורטל המשחקים המשודרג</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts Rubik -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            purple: '#6C5CE7',
+                            pink: '#FD79A8',
+                            yellow: '#FDCB6E',
+                            cyan: '#00CEC9',
+                            blue: '#0984E3',
+                            green: '#00B894',
+                            dark: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        rubik: ['Rubik', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            font-family: 'Rubik', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dark body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1136 100%);
+            color: #ffffff;
+        }
+
+        .light body {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e0e7ff 100%);
+            color: #1e293b;
+        }
+
+        .glass-card {
+            backdrop-filter: blur(16px);
+            transition: all 0.3s ease;
+        }
+
+        .dark .glass-card {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .light .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        .btn-bounce {
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s;
+        }
+        .btn-bounce:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 10px 20px -5px rgba(108, 92, 231, 0.4);
+        }
+        .btn-bounce:active {
+            transform: translateY(1px) scale(0.97);
+        }
+
+        .game-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .game-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 30px -10px rgba(108, 92, 231, 0.5);
+        }
+
+        /* Particles canvas behind content */
+        #bg-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: #6C5CE7; border-radius: 4px; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+        .animate-float { animation: float 3.5s ease-in-out infinite; }
+
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(253, 203, 110, 0.6)); }
+            50% { filter: drop-shadow(0 0 22px rgba(253, 203, 110, 1)); }
+        }
+        .glow-effect { animation: pulse-glow 2s infinite; }
+
+        .card-flip { perspective: 1000px; }
+        .card-inner { transition: transform 0.5s; transform-style: preserve-3d; }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back { backface-visibility: hidden; }
+        .card-back { transform: rotateY(180deg); }
+
+        /* Custom Aura Effects */
+        .aura-gold { box-shadow: 0 0 25px 8px rgba(253, 203, 110, 0.8); }
+        .aura-rainbow { animation: rainbow-glow 3s linear infinite; }
+        @keyframes rainbow-glow {
+            0% { box-shadow: 0 0 20px #ff0000; }
+            33% { box-shadow: 0 0 20px #00ff00; }
+            66% { box-shadow: 0 0 20px #0000ff; }
+            100% { box-shadow: 0 0 20px #ff0000; }
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen relative overflow-x-hidden">
+
+    <!-- Ambient Particles Background Canvas -->
+    <canvas id="bg-particles"></canvas>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 glass-card border-b border-white/10 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between relative z-10">
+            
+            <!-- Logo -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('games')">
+                <div class="bg-gradient-to-tr from-brand-purple to-brand-pink p-3 rounded-2xl shadow-lg animate-float">
+                    <i class="fa-solid fa-gamepad text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black tracking-wider bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-300 bg-clip-text text-transparent">
+                        כיף בכיף <span class="text-xs bg-brand-pink text-white px-2 py-0.5 rounded-full">2.0 VIP</span>
+                    </h1>
+                    <p class="text-xs opacity-75">עולם המשחקים שלכם</p>
+                </div>
+            </div>
+
+            <!-- Stats & Quick Controls -->
+            <div class="flex items-center gap-2 sm:gap-5">
+                <!-- Stars -->
+                <div class="flex items-center gap-2 bg-black/30 dark:bg-black/50 px-3 py-1.5 rounded-full border border-yellow-500/40">
+                    <i class="fa-solid fa-star text-yellow-400 text-lg glow-effect"></i>
+                    <span id="user-stars" class="font-bold text-yellow-400 text-sm sm:text-base">0</span>
+                </div>
+
+                <!-- Level & XP Bar -->
+                <div class="hidden md:flex flex-col w-32">
+                    <div class="flex justify-between text-xs font-bold text-cyan-400 mb-1">
+                        <span>רמה <span id="user-level">1</span></span>
+                        <span id="user-xp-text">0/100</span>
+                    </div>
+                    <div class="w-full bg-gray-700/50 h-2.5 rounded-full overflow-hidden p-0.5 border border-white/10">
+                        <div id="user-xp-bar" class="bg-gradient-to-r from-cyan-400 via-brand-purple to-brand-pink h-full w-0 rounded-full transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- Theme Toggle Button -->
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-yellow-300 transition btn-bounce" title="חופף מצב לילה/יום">
+                    <i id="theme-icon" class="fa-solid fa-moon text-lg"></i>
+                </button>
+
+                <!-- Sound Toggle -->
+                <button id="sound-btn" onclick="toggleAudio()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-yellow-300 transition btn-bounce" title="הפעל/כבה קול">
+                    <i class="fa-solid fa-volume-high text-lg"></i>
+                </button>
+
+                <!-- Avatar Profile Quick Button -->
+                <button onclick="switchTab('profile')" class="flex items-center gap-2 bg-brand-purple/40 hover:bg-brand-purple/60 p-1.5 pl-3 rounded-full border border-purple-400/40 transition btn-bounce">
+                    <div id="nav-avatar" class="w-9 h-9 rounded-full bg-gradient-to-r from-pink-500 to-yellow-500 flex items-center justify-center text-xl relative">
+                        🐱
+                        <span id="nav-avatar-hat" class="absolute -top-2.5 text-xs"></span>
+                    </div>
+                    <span id="nav-username" class="font-bold text-sm hidden lg:inline">שחקן</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col relative z-10">
+        
+        <!-- Navigation Tabs -->
+        <nav class="flex justify-center flex-wrap gap-2 sm:gap-4 mb-6">
+            <button onclick="switchTab('games')" id="tab-btn-games" class="tab-btn active bg-brand-purple text-white px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 shadow-lg transition btn-bounce">
+                <i class="fa-solid fa-gamepad"></i> משחקים
+            </button>
+            <button onclick="switchTab('shop')" id="tab-btn-shop" class="tab-btn bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 transition btn-bounce">
+                <i class="fa-solid fa-store text-yellow-400"></i> חנות
+            </button>
+            <button onclick="switchTab('profile')" id="tab-btn-profile" class="tab-btn bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 transition btn-bounce">
+                <i class="fa-solid fa-user-ninja text-pink-400"></i> דמות & פרופיל
+            </button>
+            <button onclick="switchTab('quests')" id="tab-btn-quests" class="tab-btn bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-2xl font-bold flex items-center gap-2 transition btn-bounce">
+                <i class="fa-solid fa-trophy text-cyan-400"></i> אתגרים & הישגים
+            </button>
+        </nav>
+
+        <!-- VIEW 1: GAMES GRID -->
+        <section id="view-games" class="tab-view space-y-6">
+            <!-- Hero Banner -->
+            <div class="glass-card rounded-3xl p-6 md:p-8 bg-gradient-to-r from-brand-purple/50 via-pink-600/30 to-cyan-600/30 border border-white/20 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="space-y-3 z-10 text-center md:text-right">
+                    <span class="bg-yellow-400 text-black text-xs font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow">משחקי 2026 המשודרגים</span>
+                    <h2 class="text-3xl md:text-4xl font-black text-white drop-shadow">מוכנים לאתגר? 12 משחקים מטורפים!</h2>
+                    <p class="opacity-90 text-sm md:text-base max-w-xl">שחקו במשחקים, צברו כוכבים, עלו דרגות ופתחו כובעים, אביזרים ואפקטים מגניבים לדמות שלכם!</p>
+                </div>
+                <div class="flex items-center gap-4 z-10">
+                    <div id="hero-avatar-display" class="text-7xl p-5 bg-white/10 rounded-3xl border border-white/20 relative animate-float shadow-2xl">
+                        🐱
+                        <div id="hero-hat" class="absolute -top-6 right-2 text-4xl"></div>
+                        <div id="hero-glasses" class="absolute top-8 left-3 text-3xl"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Games Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="games-container">
+                <!-- Cards injected dynamically via JS -->
+            </div>
+        </section>
+
+        <!-- VIEW 2: SHOP VIEW -->
+        <section id="view-shop" class="tab-view hidden space-y-6">
+            <div class="glass-card rounded-3xl p-6 text-center space-y-2">
+                <h2 class="text-3xl font-black text-yellow-400"><i class="fa-solid fa-store ml-2"></i>חנות השדרוגים והאביזרים</h2>
+                <p class="opacity-80">השתמשו בכוכבים שרווחתם במשחקים כדי לשדרג את המראה של הדמות שלכם!</p>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" id="shop-items-container">
+                <!-- Items injected by JS -->
+            </div>
+        </section>
+
+        <!-- VIEW 3: PROFILE & CUSTOMIZATION -->
+        <section id="view-profile" class="tab-view hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Character Preview Card -->
+                <div class="glass-card rounded-3xl p-6 flex flex-col items-center justify-center space-y-4 text-center">
+                    <h3 class="text-xl font-bold text-pink-400">הדמות שלי</h3>
+                    <div id="profile-avatar-box" class="relative w-44 h-44 bg-gradient-to-b from-purple-800/50 to-pink-800/50 rounded-full flex items-center justify-center border-4 border-yellow-400/60 shadow-2xl transition">
+                        <span id="profile-avatar-emoji" class="text-8xl">🐱</span>
+                        <span id="profile-avatar-hat" class="absolute -top-1 text-5xl"></span>
+                        <span id="profile-avatar-glasses" class="absolute top-14 text-4xl"></span>
+                        <span id="profile-avatar-wings" class="absolute -right-5 top-12 text-5xl transform rotate-12"></span>
+                    </div>
+                    <div class="w-full space-y-2">
+                        <label class="block text-xs font-bold opacity-75">שם השחקן:</label>
+                        <input type="text" id="username-input" onchange="updateUsername(this.value)" class="w-full bg-black/30 border border-white/20 rounded-xl px-4 py-2 text-center text-yellow-400 font-bold focus:outline-none focus:border-yellow-400">
+                    </div>
+                </div>
+
+                <!-- Select Base Avatar & Equipped Items -->
+                <div class="glass-card rounded-3xl p-6 lg:col-span-2 space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold text-cyan-400 mb-3"><i class="fa-solid fa-face-smile ml-2"></i>בחר דמות בסיס:</h3>
+                        <div class="flex flex-wrap gap-3" id="base-avatars-list">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+
+                    <div class="border-t border-white/10 pt-4">
+                        <h3 class="text-lg font-bold text-yellow-400 mb-3"><i class="fa-solid fa-shirt ml-2"></i>ציוד לבוש ופועל:</h3>
+                        <div id="equipped-items-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: QUESTS & ACHIEVEMENTS -->
+        <section id="view-quests" class="tab-view hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Daily Quests -->
+                <div class="glass-card rounded-3xl p-6 space-y-4">
+                    <h3 class="text-2xl font-black text-cyan-400 flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-check text-cyan-400"></i> אתגרים יומיים
+                    </h3>
+                    <div class="space-y-3" id="daily-quests-container">
+                        <!-- Daily Quests JS -->
+                    </div>
+                </div>
+
+                <!-- Achievements -->
+                <div class="glass-card rounded-3xl p-6 space-y-4">
+                    <h3 class="text-2xl font-black text-yellow-400 flex items-center gap-2">
+                        <i class="fa-solid fa-award text-yellow-400"></i> הישגים ומדליות
+                    </h3>
+                    <div class="space-y-3" id="achievements-container">
+                        <!-- Achievements JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 5: GAME PLAY CONTAINER (MODAL VIEW) -->
+        <section id="view-game-play" class="tab-view hidden flex-1 flex flex-col space-y-4">
+            <!-- Game Header Bar -->
+            <div class="glass-card rounded-2xl p-4 flex items-center justify-between gap-2">
+                <button onclick="switchTab('games')" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition btn-bounce">
+                    <i class="fa-solid fa-arrow-right"></i> חזרה למשחקים
+                </button>
+                <div class="text-center">
+                    <h2 id="active-game-title" class="text-xl md:text-2xl font-black text-yellow-400">שם המשחק</h2>
+                    <p id="active-game-desc" class="text-xs opacity-75 hidden sm:block">הוראות משחק</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="restartCurrentGame()" class="bg-brand-purple hover:bg-purple-600 text-white px-3.5 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5 transition btn-bounce">
+                        <i class="fa-solid fa-rotate-right"></i> מחדש
+                    </button>
+                </div>
+            </div>
+
+            <!-- Game Viewport Box -->
+            <div class="glass-card rounded-3xl p-4 md:p-6 flex-1 flex flex-col items-center justify-center relative min-h-[460px] overflow-hidden" id="game-canvas-wrapper">
+                <div id="game-stage" class="w-full h-full flex flex-col items-center justify-center"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-card border-t border-white/10 py-4 px-6 text-center text-xs opacity-60 mt-auto relative z-10">
+        כיף בכיף 2.0 VIP &copy; 2026 | כל הזכויות שמורות - פלטפורמת משחקים מתקדמת לכל המשפחה
+    </footer>
+
+    <!-- Audio & App Logic JavaScript -->
+    <script>
+        /* ==========================================
+           1. AMBIENT PARTICLES ENGINE
+           ========================================== */
+        (function initParticles() {
+            const canvas = document.getElementById('bg-particles');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            for (let i = 0; i < 40; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    alpha: Math.random() * 0.5 + 0.2
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0) p.x = canvas.width;
+                    if (p.x > canvas.width) p.x = 0;
+                    if (p.y < 0) p.y = canvas.height;
+                    if (p.y > canvas.height) p.y = 0;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(253, 203, 110, ${p.alpha})`;
+                    ctx.fill();
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        /* ==========================================
+           2. SOUND & SYNTHESIZER ENGINE (Web Audio)
+           ========================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.1, volume = 0.1) {
+                if (this.muted) return;
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+
+            playClick() { this.playTone(450, 'triangle', 0.05, 0.1); }
+            playSuccess() { 
+                this.playTone(523.25, 'sine', 0.1, 0.15);
+                setTimeout(() => this.playTone(659.25, 'sine', 0.1, 0.15), 90);
+                setTimeout(() => this.playTone(783.99, 'sine', 0.2, 0.15), 180);
+            }
+            playFail() {
+                this.playTone(280, 'sawtooth', 0.15, 0.15);
+                setTimeout(() => this.playTone(200, 'sawtooth', 0.25, 0.15), 120);
+            }
+            playPop() { this.playTone(650, 'sine', 0.04, 0.2); }
+            playWinFanfare() {
+                const notes = [400, 500, 600, 800, 1000];
+                notes.forEach((n, idx) => {
+                    setTimeout(() => this.playTone(n, 'triangle', 0.15, 0.2), idx * 100);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        function toggleAudio() {
+            sound.muted = !sound.muted;
+            const btn = document.getElementById('sound-btn');
+            btn.innerHTML = sound.muted 
+                ? '<i class="fa-solid fa-volume-xmark text-lg text-red-400"></i>' 
+                : '<i class="fa-solid fa-volume-high text-lg text-yellow-300"></i>';
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                icon.className = 'fa-solid fa-sun text-lg text-yellow-500';
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                icon.className = 'fa-solid fa-moon text-lg text-yellow-300';
+            }
+        }
+
+        /* ==========================================
+           3. STATE & LOCALSTORAGE MANAGEMENT
+           ========================================== */
+        const DEFAULT_STATE = {
+            username: 'שחקן אלופ/ה',
+            stars: 50,
+            xp: 0,
+            level: 1,
+            avatar: '🐱',
+            equipped: { hat: null, glasses: null, wings: null, aura: null },
+            inventory: [],
+            completedQuests: [],
+            unlockedAchievements: []
+        };
+
+        let state = JSON.parse(localStorage.getItem('kif_bkif_2_v2_data')) || DEFAULT_STATE;
+
+        function saveState() {
+            localStorage.setItem('kif_bkif_2_v2_data', JSON.stringify(state));
+            updateUI();
+        }
+
+        function addStars(amount) {
+            state.stars += amount;
+            addXP(amount * 5);
+            sound.playSuccess();
+            checkAchievements();
+            saveState();
+        }
+
+        function addXP(amount) {
+            state.xp += amount;
+            const requiredXP = state.level * 100;
+            if (state.xp >= requiredXP) {
+                state.xp -= requiredXP;
+                state.level += 1;
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                sound.playWinFanfare();
+            }
+            saveState();
+        }
+
+        function updateUsername(newName) {
+            if (newName.trim()) {
+                state.username = newName.trim();
+                saveState();
+            }
+        }
+
+        /* ==========================================
+           4. SHOP & ITEMS DATABASE
+           ========================================== */
+        const SHOP_ITEMS = [
+            { id: 'hat_party', name: 'כובע מסיבות', type: 'hat', icon: '🥳', price: 30 },
+            { id: 'hat_crown', name: 'כתר מלך/מלכה', type: 'hat', icon: '👑', price: 100 },
+            { id: 'hat_cowboy', name: 'כובע בוקרים', type: 'hat', icon: '🤠', price: 50 },
+            { id: 'hat_wizard', name: 'כובע קוסמים', type: 'hat', icon: '🧙‍♂️', price: 75 },
+            { id: 'glasses_cool', name: 'משקפי שמש מגניבים', type: 'glasses', icon: '🕶️', price: 40 },
+            { id: 'glasses_nerd', name: 'משקפי חכמולוג', type: 'glasses', icon: '🤓', price: 35 },
+            { id: 'wings_angel', name: 'כנפי מלאך', type: 'wings', icon: '🪽', price: 120 },
+            { id: 'wings_bat', name: 'כנפי עטלף', type: 'wings', icon: '🦇', price: 90 },
+            { id: 'aura_gold', name: 'הילת זהב נוצצת', type: 'aura', icon: '✨', price: 150 }
+        ];
+
+        const BASE_AVATARS = ['🐱', '🐶', '🦊', '🐻', '🦁', '🦄', '🤖', '🐸', '🐼', '🐯'];
+
+        function buyItem(itemId) {
+            const item = SHOP_ITEMS.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (state.stars >= item.price && !state.inventory.includes(itemId)) {
+                state.stars -= item.price;
+                state.inventory.push(itemId);
+                equipItem(itemId);
+                sound.playWinFanfare();
+                confetti({ particleCount: 60 });
+                saveState();
+            } else if (state.inventory.includes(itemId)) {
+                equipItem(itemId);
+            } else {
+                sound.playFail();
+            }
+        }
+
+        function equipItem(itemId) {
+            const item = SHOP_ITEMS.find(i => i.id === itemId);
+            if (!item) return;
+
+            if (state.equipped[item.type] === item.icon) {
+                state.equipped[item.type] = null;
+            } else {
+                state.equipped[item.type] = item.icon;
+            }
+            saveState();
+        }
+
+        /* ==========================================
+           5. ACHIEVEMENTS & QUESTS
+           ========================================== */
+        const DAILY_QUESTS = [
+            { id: 'q1', title: 'שחק 3 משחקים שונים', reward: 25, progress: 'נשאר 1' },
+            { id: 'q2', title: 'צבור 50 נקודות במשחק החשבון', reward: 30, progress: 'נפתח' },
+            { id: 'q3', title: 'נצח את המחשב באיקס עיגול', reward: 35, progress: 'נפתח' }
+        ];
+
+        const ACHIEVEMENTS = [
+            { id: 'a1', title: 'צעד ראשון', desc: 'שחק במשחק הראשון שלך', icon: '🎮', reward: 15 },
+            { id: 'a2', title: 'אלוף הכוכבים', desc: 'צבור 100 כוכבים בחשבון', icon: '⭐', reward: 50 },
+            { id: 'a3', title: 'חובב אופנה', desc: 'קנה פריט אחד בחנות', icon: '🛍️', reward: 30 },
+            { id: 'a4', title: 'צלף מומחה', desc: 'נצח במשחק קליעה למטרה', icon: '🎯', reward: 40 }
+        ];
+
+        function checkAchievements() {
+            if (state.stars >= 100 && !state.unlockedAchievements.includes('a2')) {
+                state.unlockedAchievements.push('a2');
+            }
+            if (state.inventory.length >= 1 && !state.unlockedAchievements.includes('a3')) {
+                state.unlockedAchievements.push('a3');
+            }
+        }
+
+        /* ==========================================
+           6. UI RENDERERS
+           ========================================== */
+        function updateUI() {
+            document.getElementById('user-stars').innerText = state.stars;
+            document.getElementById('user-level').innerText = state.level;
+            
+            const reqXP = state.level * 100;
+            document.getElementById('user-xp-text').innerText = `${state.xp}/${reqXP}`;
+            document.getElementById('user-xp-bar').style.width = `${Math.min(100, (state.xp / reqXP) * 100)}%`;
+
+            // Profile Avatar Sync
+            document.getElementById('nav-avatar').childNodes[0].nodeValue = state.avatar;
+            document.getElementById('nav-avatar-hat').innerText = state.equipped.hat || '';
+            document.getElementById('hero-avatar-display').childNodes[0].nodeValue = state.avatar;
+            document.getElementById('hero-hat').innerText = state.equipped.hat || '';
+            document.getElementById('hero-glasses').innerText = state.equipped.glasses || '';
+
+            document.getElementById('profile-avatar-emoji').innerText = state.avatar;
+            document.getElementById('profile-avatar-hat').innerText = state.equipped.hat || '';
+            document.getElementById('profile-avatar-glasses').innerText = state.equipped.glasses || '';
+            document.getElementById('profile-avatar-wings').innerText = state.equipped.wings || '';
+            
+            const box = document.getElementById('profile-avatar-box');
+            if (state.equipped.aura) {
+                box.className = 'relative w-44 h-44 bg-gradient-to-b from-purple-800/50 to-pink-800/50 rounded-full flex items-center justify-center border-4 border-yellow-400/60 aura-gold';
+            } else {
+                box.className = 'relative w-44 h-44 bg-gradient-to-b from-purple-800/50 to-pink-800/50 rounded-full flex items-center justify-center border-4 border-yellow-400/60 shadow-2xl';
+            }
+
+            document.getElementById('nav-username').innerText = state.username;
+            document.getElementById('username-input').value = state.username;
+
+            renderShop();
+            renderProfileOptions();
+            renderQuests();
+        }
+
+        function switchTab(tabId) {
+            sound.playClick();
+            document.querySelectorAll('.tab-view').forEach(v => v.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('bg-brand-purple', 'text-white');
+                b.classList.add('bg-white/10');
+            });
+
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white/10');
+                activeBtn.classList.add('bg-brand-purple', 'text-white');
+            }
+
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-items-container');
+            container.innerHTML = SHOP_ITEMS.map(item => {
+                const owned = state.inventory.includes(item.id);
+                const equipped = state.equipped[item.type] === item.icon;
+
+                return `
+                    <div class="glass-card rounded-2xl p-5 flex flex-col items-center justify-between text-center border ${equipped ? 'border-yellow-400 bg-yellow-400/10' : 'border-white/10'}">
+                        <div class="text-6xl mb-3 animate-float">${item.icon}</div>
+                        <h4 class="font-bold text-lg mb-1">${item.name}</h4>
+                        <p class="text-xs opacity-75 mb-4">סוג: ${item.type}</p>
+                        
+                        ${owned ? `
+                            <button onclick="equipItem('${item.id}')" class="w-full ${equipped ? 'bg-yellow-400 text-black' : 'bg-white/20 text-white'} font-bold py-2.5 px-4 rounded-xl btn-bounce">
+                                ${equipped ? 'לבוש כעת ✓' : 'לבוש פריט'}
+                            </button>
+                        ` : `
+                            <button onclick="buyItem('${item.id}')" class="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-extrabold py-2.5 px-4 rounded-xl btn-bounce flex items-center justify-center gap-2">
+                                <span>לקנות</span>
+                                <span class="flex items-center gap-1 text-sm"><i class="fa-solid fa-star"></i> ${item.price}</span>
+                            </button>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderProfileOptions() {
+            const avatarContainer = document.getElementById('base-avatars-list');
+            avatarContainer.innerHTML = BASE_AVATARS.map(emoji => `
+                <button onclick="setBaseAvatar('${emoji}')" class="w-14 h-14 rounded-2xl glass-card text-3xl flex items-center justify-center hover:scale-110 transition border ${state.avatar === emoji ? 'border-pink-400 bg-pink-500/20' : 'border-white/10'}">
+                    ${emoji}
+                </button>
+            `).join('');
+
+            const equippedContainer = document.getElementById('equipped-items-list');
+            const equippedArray = Object.entries(state.equipped).filter(([k, v]) => v !== null);
+            if (equippedArray.length === 0) {
+                equippedContainer.innerHTML = '<p class="opacity-60 text-sm">אין פריטים לבושים כרגע. בקרו בחנות!</p>';
+            } else {
+                equippedContainer.innerHTML = equippedArray.map(([type, icon]) => `
+                    <div class="bg-black/20 p-3 rounded-xl flex items-center justify-between border border-white/10">
+                        <span class="text-2xl">${icon}</span>
+                        <span class="text-sm font-bold opacity-90">${type}</span>
+                        <button onclick="state.equipped['${type}'] = null; saveState();" class="text-xs text-red-400 hover:underline">הסר</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function setBaseAvatar(emoji) {
+            state.avatar = emoji;
+            sound.playClick();
+            saveState();
+        }
+
+        function renderQuests() {
+            document.getElementById('daily-quests-container').innerHTML = DAILY_QUESTS.map(q => `
+                <div class="bg-black/20 p-4 rounded-2xl flex items-center justify-between border border-white/10">
+                    <div>
+                        <h4 class="font-bold text-sm">${q.title}</h4>
+                        <span class="text-xs text-yellow-400 font-bold flex items-center gap-1 mt-1">
+                            <i class="fa-solid fa-star"></i> +${q.reward} כוכבים
+                        </span>
+                    </div>
+                    <span class="bg-brand-purple/40 text-xs px-3 py-1 rounded-full font-bold">${q.progress}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('achievements-container').innerHTML = ACHIEVEMENTS.map(a => {
+                const isUnlocked = state.unlockedAchievements.includes(a.id);
+                return `
+                    <div class="bg-black/20 p-4 rounded-2xl flex items-center justify-between border ${isUnlocked ? 'border-yellow-400/50 bg-yellow-400/10' : 'border-white/10'}">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">${a.icon}</span>
+                            <div>
+                                <h4 class="font-bold text-sm">${a.title}</h4>
+                                <p class="text-xs opacity-75">${a.desc}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold ${isUnlocked ? 'text-green-400' : 'text-yellow-400'}">
+                            ${isUnlocked ? 'הושלם ✓' : `+${a.reward} ⭐`}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /* ==========================================
+           7. 12 GAMES ENGINES IMPLEMENTATION
+           ========================================== */
+        let currentGameId = null;
+
+        const GAMES_LIST = [
+            { id: 'memory', name: 'משחק זיכרון מתקדם', icon: '🧠', color: 'from-purple-500 to-indigo-600', desc: 'נושאים מתחלפים! מצאו זוגות תואמים במהירות.' },
+            { id: 'math', name: 'אלופי החשבון VIP', icon: '🔢', color: 'from-blue-500 to-cyan-600', desc: 'בחרו דרגת קושי ופתרו תרגילי חשבון קצביים!' },
+            { id: 'trivia', name: 'חידות ניחושים', icon: '💡', color: 'from-yellow-500 to-amber-600', desc: 'גלו מילים וחידות מצחיקות ומעניינות!' },
+            { id: 'rps', name: 'אבן נייר ומספריים', icon: '✂️', color: 'from-pink-500 to-rose-600', desc: 'שחקו נגד המחשב והשיגו רצף ניצחונות (Streak)!' },
+            { id: 'tictactoe', name: 'איקס עיגול זוגי/מחשב', icon: '❌', color: 'from-emerald-500 to-teal-600', desc: 'שחקו נגד המחשב החכם או נגד חבר סמוך!' },
+            { id: 'reaction', name: 'מבחן תגובה מהיר', icon: '⚡', color: 'from-red-500 to-orange-600', desc: 'לחצו מיד כשהמסך משנה צבע לירוק!' },
+            { id: 'colorMatch', name: 'מבחן הצבעים', icon: '🎨', color: 'from-fuchsia-500 to-purple-600', desc: 'האם צבע הטקסט תואם למילה הכתובה?' },
+            { id: 'countObjects', name: 'ספירת פריטים', icon: '🍎', color: 'from-green-500 to-emerald-600', desc: 'ספרו כמה פריטים מפוזרים מופיעים על המסך!' },
+            { id: 'puzzle', name: 'פאזל הזזת אריחים', icon: '🧩', color: 'from-sky-500 to-blue-600', desc: 'סדרו את המספרים בסדר עולה במינימום צעדים!' },
+            { id: 'catch', name: 'תפיסת פירות ארקייד', icon: '🧺', color: 'from-amber-500 to-orange-600', desc: 'תפסו פירות מהשמיים והתרחקו מפצצות!' },
+            { id: 'target', name: 'קליעה למטרה / בלונים', icon: '🎯', color: 'from-rose-500 to-red-600', desc: 'פוצצו את הבלונים והמטרות לפני שהם נעלמים!' },
+            { id: 'adventure', name: 'הרפתקת הכוכבים 2D', icon: '🕹️', color: 'from-violet-600 to-purple-900', desc: 'קפצו, אספו מטבעות והגיעו לדגל הניצחון!' }
+        ];
+
+        function renderGamesGrid() {
+            const container = document.getElementById('games-container');
+            container.innerHTML = GAMES_LIST.map(game => `
+                <div onclick="launchGame('${game.id}')" class="game-card glass-card rounded-3xl p-5 flex flex-col justify-between cursor-pointer border border-white/15 bg-gradient-to-b ${game.color}/20 hover:border-yellow-400">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-4xl p-3 bg-white/10 rounded-2xl border border-white/10 shadow">${game.icon}</span>
+                        <span class="bg-yellow-400/20 text-yellow-400 text-xs font-bold px-3 py-1 rounded-full border border-yellow-400/30 flex items-center gap-1">
+                            <i class="fa-solid fa-star"></i> +20
+                        </span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">${game.name}</h3>
+                        <p class="text-xs opacity-80 leading-relaxed mb-4">${game.desc}</p>
+                    </div>
+                    <button class="w-full bg-white/10 hover:bg-white/20 font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 border border-white/10 transition">
+                        <span>שחק עכשיו</span>
+                        <i class="fa-solid fa-play text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function launchGame(gameId) {
+            const game = GAMES_LIST.find(g => g.id === gameId);
+            if (!game) return;
+
+            currentGameId = gameId;
+            document.getElementById('active-game-title').innerText = game.name;
+            document.getElementById('active-game-desc').innerText = game.desc;
+            
+            switchTab('game-play');
+            initGameStage(gameId);
+            if (!state.unlockedAchievements.includes('a1')) {
+                state.unlockedAchievements.push('a1');
+                saveState();
+            }
+        }
+
+        function restartCurrentGame() {
+            if (currentGameId) initGameStage(currentGameId);
+        }
+
+        function initGameStage(gameId) {
+            const stage = document.getElementById('game-stage');
+            stage.innerHTML = '';
+
+            switch (gameId) {
+                case 'memory': runMemoryGame(stage); break;
+                case 'math': runMathGame(stage); break;
+                case 'trivia': runTriviaGame(stage); break;
+                case 'rps': runRpsGame(stage); break;
+                case 'tictactoe': runTicTacToeGame(stage); break;
+                case 'reaction': runReactionGame(stage); break;
+                case 'colorMatch': runColorMatchGame(stage); break;
+                case 'countObjects': runCountObjectsGame(stage); break;
+                case 'puzzle': runPuzzleGame(stage); break;
+                case 'catch': runCatchGame(stage); break;
+                case 'target': runTargetGame(stage); break;
+                case 'adventure': runAdventureGame(stage); break;
+            }
+        }
+
+        /* ------------------------------------------
+           GAME 1: ADVANCED MEMORY MATCH
+           ------------------------------------------ */
+        function runMemoryGame(stage) {
+            const themePacks = {
+                animals: ['🐶', '🐱', '🦊', '🐸', '🦁', '🐵'],
+                food: ['🍎', '🍕', '🍩', '🍔', '🍦', '🍓'],
+                space: ['🚀', '🛸', '🌙', '⭐', '🪐', '👾']
+            };
+
+            let currentPack = 'animals';
+            let deck = [];
+            let flipped = [];
+            let moves = 0;
+            let matchedCount = 0;
+
+            function startMemoryTheme(packKey) {
+                currentPack = packKey;
+                const icons = themePacks[packKey];
+                deck = [...icons, ...icons].sort(() => Math.random() - 0.5);
+                moves = 0;
+                matchedCount = 0;
+                flipped = [];
+
+                stage.innerHTML = `
+                    <div class="w-full max-w-md flex flex-col items-center space-y-4">
+                        <div class="flex gap-2 mb-2">
+                            <button onclick="startMemoryTheme('animals')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${currentPack === 'animals' ? 'bg-brand-purple text-white' : 'bg-white/10'} btn-bounce">🐶 חיות</button>
+                            <button onclick="startMemoryTheme('food')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${currentPack === 'food' ? 'bg-brand-purple text-white' : 'bg-white/10'} btn-bounce">🍕 מאכלים</button>
+                            <button onclick="startMemoryTheme('space')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${currentPack === 'space' ? 'bg-brand-purple text-white' : 'bg-white/10'} btn-bounce">🚀 חלל</button>
+                        </div>
+                        <div class="text-xs font-bold opacity-80">מהלכים: <span id="mem-moves">0</span></div>
+                        <div class="grid grid-cols-4 gap-3 w-full" id="memory-board">
+                            ${deck.map((icon, idx) => `
+                                <div class="card-flip h-24 cursor-pointer" onclick="handleMemoryClick(${idx}, '${icon}')">
+                                    <div id="card-${idx}" class="card-inner w-full h-full rounded-2xl border border-white/20 relative shadow-md">
+                                        <div class="card-front absolute inset-0 bg-gradient-to-br from-brand-purple to-pink-600 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">❓</div>
+                                        <div class="card-back absolute inset-0 bg-slate-800 rounded-2xl flex items-center justify-center text-4xl border-2 border-yellow-400">${icon}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.startMemoryTheme = startMemoryTheme;
+
+            window.handleMemoryClick = function(idx, icon) {
+                const cardEl = document.getElementById(`card-${idx}`);
+                if (flipped.length >= 2 || cardEl.classList.contains('flipped')) return;
+
+                sound.playClick();
+                cardEl.classList.add('flipped');
+                flipped.push({ idx, icon, el: cardEl });
+
+                if (flipped.length === 2) {
+                    moves++;
+                    document.getElementById('mem-moves').innerText = moves;
+
+                    if (flipped[0].icon === flipped[1].icon) {
+                        sound.playSuccess();
+                        matchedCount += 2;
+                        flipped = [];
+                        if (matchedCount === deck.length) {
+                            setTimeout(() => {
+                                addStars(20);
+                                stage.innerHTML = `
+                                    <div class="text-center space-y-4">
+                                        <h3 class="text-3xl font-black text-yellow-400">כל הכבוד! 🏆</h3>
+                                        <p class="text-lg">פתרת את הזיכרון ב-${moves} מהלכים וזכית ב-20 כוכבים!</p>
+                                        <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                                    </div>
+                                `;
+                            }, 500);
+                        }
+                    } else {
+                        sound.playFail();
+                        setTimeout(() => {
+                            flipped[0].el.classList.remove('flipped');
+                            flipped[1].el.classList.remove('flipped');
+                            flipped = [];
+                        }, 800);
+                    }
+                }
+            };
+
+            startMemoryTheme('animals');
+        }
+
+        /* ------------------------------------------
+           GAME 2: MATH MASTERS VIP
+           ------------------------------------------ */
+        function runMathGame(stage) {
+            let score = 0;
+            let currentAns = 0;
+            let difficulty = 'easy';
+
+            function nextQuestion() {
+                let n1, n2, isPlus;
+                if (difficulty === 'easy') {
+                    n1 = Math.floor(Math.random() * 10) + 1;
+                    n2 = Math.floor(Math.random() * 10) + 1;
+                    isPlus = Math.random() > 0.3;
+                } else {
+                    n1 = Math.floor(Math.random() * 20) + 5;
+                    n2 = Math.floor(Math.random() * 15) + 2;
+                    isPlus = Math.random() > 0.5;
+                }
+
+                currentAns = isPlus ? n1 + n2 : Math.max(n1, n2) - Math.min(n1, n2);
+                const qText = isPlus ? `${n1} + ${n2}` : `${Math.max(n1, n2)} - ${Math.min(n1, n2)}`;
+
+                let opts = [currentAns];
+                while(opts.length < 4) {
+                    let r = Math.floor(Math.random() * 35);
+                    if(!opts.includes(r)) opts.push(r);
+                }
+                opts.sort(() => Math.random() - 0.5);
+
+                stage.innerHTML = `
+                    <div class="text-center space-y-6 w-full max-w-md">
+                        <div class="flex justify-between items-center text-sm font-bold">
+                            <div class="flex gap-2">
+                                <button onclick="setMathDiff('easy')" class="px-3 py-1 rounded-xl text-xs ${difficulty==='easy'?'bg-brand-purple text-white':'bg-white/10'}">קל</button>
+                                <button onclick="setMathDiff('hard')" class="px-3 py-1 rounded-xl text-xs ${difficulty==='hard'?'bg-brand-purple text-white':'bg-white/10'}">אתגר</button>
+                            </div>
+                            <span>ניקוד: <span class="text-yellow-400 text-lg">${score}</span></span>
+                        </div>
+                        <div class="bg-black/30 p-8 rounded-3xl border border-white/20">
+                            <span class="text-xs opacity-75 font-bold block mb-2">כמה זה?</span>
+                            <h3 class="text-5xl font-black text-yellow-400">${qText} = ?</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            ${opts.map(o => `
+                                <button onclick="checkMathAns(${o})" class="bg-white/10 hover:bg-brand-purple text-2xl font-black py-4 rounded-2xl border border-white/15 btn-bounce">${o}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.setMathDiff = function(diff) {
+                difficulty = diff;
+                score = 0;
+                nextQuestion();
+            };
+
+            window.checkMathAns = function(ans) {
+                if (ans === currentAns) {
+                    sound.playSuccess();
+                    score += 10;
+                    if (score >= 50) {
+                        addStars(20);
+                        stage.innerHTML = `
+                            <div class="text-center space-y-4">
+                                <h3 class="text-3xl font-black text-yellow-400">גאון חשבון! 🎉</h3>
+                                <p class="text-lg">צברת 50 נקודות וזכית ב-20 כוכבים!</p>
+                                <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                            </div>
+                        `;
+                    } else {
+                        nextQuestion();
+                    }
+                } else {
+                    sound.playFail();
+                    nextQuestion();
+                }
+            };
+
+            nextQuestion();
+        }
+
+        /* ------------------------------------------
+           GAME 3: TRIVIA / RIDDLES
+           ------------------------------------------ */
+        function runTriviaGame(stage) {
+            const riddles = [
+                { q: 'מה יורד מהשמיים בחורף ומרטיב את הכל?', a: 'גשם', opts: ['גשם', 'שמש', 'רוח', 'ענן'] },
+                { q: 'איזו חיה מגרגרת ועושה מיאו?', a: 'חתול', opts: ['כלב', 'חתול', 'ארנב', 'סוס'] },
+                { q: 'איזה פרי הוא אדום עם גרגרים שחורים ומתוק בקיץ?', a: 'אבטיח', opts: ['תפוח', 'בננה', 'אבטיח', 'ענבים'] },
+                { q: 'מה מאיר לנו את היום בשמיים?', a: 'שמש', opts: ['ירח', 'כוכב', 'שמש', 'פנס'] }
+            ];
+            let index = 0;
+
+            function render() {
+                const r = riddles[index];
+                stage.innerHTML = `
+                    <div class="text-center space-y-6 w-full max-w-md">
+                        <div class="bg-black/30 p-6 rounded-3xl border border-white/20">
+                            <span class="text-yellow-400 text-xs font-bold block mb-2">חידה ${index + 1} מתוך ${riddles.length}</span>
+                            <h3 class="text-xl font-bold">${r.q}</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            ${r.opts.map(o => `
+                                <button onclick="checkTrivia('${o}')" class="bg-white/10 hover:bg-brand-purple text-lg font-bold py-4 rounded-2xl border border-white/15 btn-bounce">${o}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.checkTrivia = function(ans) {
+                if (ans === riddles[index].a) {
+                    sound.playSuccess();
+                    index++;
+                    if (index >= riddles.length) {
+                        addStars(20);
+                        stage.innerHTML = `
+                            <div class="text-center space-y-4">
+                                <h3 class="text-3xl font-black text-yellow-400">פותר החידות המצטיין! 💡</h3>
+                                <p>ענית על כל החידות וקיבלת 20 כוכבים!</p>
+                                <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                            </div>
+                        `;
+                    } else {
+                        render();
+                    }
+                } else {
+                    sound.playFail();
+                }
+            };
+
+            render();
+        }
+
+        /* ------------------------------------------
+           GAME 4: ROCK PAPER SCISSORS ULTIMATE
+           ------------------------------------------ */
+        function runRpsGame(stage) {
+            let pScore = 0;
+            let streak = 0;
+
+            const choices = [
+                { id: 'rock', icon: '🪨', name: 'אבן' },
+                { id: 'paper', icon: '📄', name: 'נייר' },
+                { id: 'scissors', icon: '✂️', name: 'מספריים' }
+            ];
+
+            function render() {
+                stage.innerHTML = `
+                    <div class="text-center space-y-6 w-full max-w-md">
+                        <div class="flex justify-between items-center bg-black/30 p-4 rounded-2xl border border-white/10 font-bold">
+                            <div>ניצחונות: <span class="text-yellow-400 text-xl">${pScore}</span></div>
+                            <div class="text-xs text-cyan-400">רצף ניצחונות 🔥 <span class="text-lg">${streak}</span></div>
+                        </div>
+                        <div id="rps-res-text" class="h-16 flex items-center justify-center font-bold text-lg text-cyan-300">
+                            בחר את המהלך שלך!
+                        </div>
+                        <div class="flex justify-center gap-4">
+                            ${choices.map(c => `
+                                <button onclick="playRps('${c.id}')" class="w-24 h-24 bg-white/10 hover:bg-brand-purple rounded-3xl text-4xl flex flex-col items-center justify-center gap-1 border border-white/15 btn-bounce">
+                                    <span>${c.icon}</span>
+                                    <span class="text-xs font-bold">${c.name}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.playRps = function(pChoice) {
+                const cChoice = choices[Math.floor(Math.random() * choices.length)].id;
+                if (pChoice === cChoice) {
+                    sound.playPop();
+                    document.getElementById('rps-res-text').innerText = 'תיקו!';
+                } else if (
+                    (pChoice === 'rock' && cChoice === 'scissors') ||
+                    (pChoice === 'paper' && cChoice === 'rock') ||
+                    (pChoice === 'scissors' && cChoice === 'paper')
+                ) {
+                    pScore++;
+                    streak++;
+                    sound.playSuccess();
+                    document.getElementById('rps-res-text').innerText = 'נצחת בסיבוב הזה! 🎉';
+                } else {
+                    streak = 0;
+                    sound.playFail();
+                    document.getElementById('rps-res-text').innerText = 'המחשב ניצח בסיבוב הזה! 🤖';
+                }
+
+                if (pScore >= 3) {
+                    addStars(20);
+                    stage.innerHTML = `
+                        <div class="text-center space-y-4">
+                            <h3 class="text-3xl font-black text-yellow-400">ניצחון אדיר! 🏆</h3>
+                            <p>הגעת ל-3 ניצחונות וקיבלת 20 כוכבים!</p>
+                            <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                        </div>
+                    `;
+                } else {
+                    render();
+                }
+            };
+
+            render();
+        }
+
+        /* ------------------------------------------
+           GAME 5: TIC TAC TOE (VS AI / 2 PLAYERS)
+           ------------------------------------------ */
+        function runTicTacToeGame(stage) {
+            let board = Array(9).fill(null);
+            let is2P = false;
+            let turn = '❌';
+
+            function render() {
+                stage.innerHTML = `
+                    <div class="text-center space-y-4 w-full max-w-xs">
+                        <div class="flex justify-center gap-2 mb-2">
+                            <button onclick="setTicMode(false)" class="px-3 py-1 rounded-xl text-xs font-bold ${!is2P ? 'bg-brand-purple text-white' : 'bg-white/10'}">נגד מחשב</button>
+                            <button onclick="setTicMode(true)" class="px-3 py-1 rounded-xl text-xs font-bold ${is2P ? 'bg-brand-purple text-white' : 'bg-white/10'}">2 שחקנים</button>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            ${board.map((cell, idx) => `
+                                <button onclick="cellClick(${idx})" class="w-20 h-20 bg-white/10 hover:bg-white/20 rounded-2xl text-4xl font-black flex items-center justify-center border border-white/15">
+                                    <span class="${cell === '❌' ? 'text-pink-400' : 'text-cyan-300'}">${cell || ''}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            window.setTicMode = function(mode2P) {
+                is2P = mode2P;
+                board = Array(9).fill(null);
+                turn = '❌';
+                render();
+            };
+
+            const checkWinner = () => {
+                const winP = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                for (let p of winP) {
+                    if (board[p[0]] && board[p[0]] === board[p[1]] && board[p[0]] === board[p[2]]) return board[p[0]];
+                }
+                return board.includes(null) ? null : 'TIE';
+            };
+
+            window.cellClick = function(idx) {
+                if (board[idx]) return;
+                sound.playClick();
+                board[idx] = turn;
+
+                let res = checkWinner();
+                if (res) { handleEnd(res); return; }
+
+                if (!is2P) {
+                    let emptyIdxs = board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+                    if (emptyIdxs.length > 0) {
+                        let aiChoice = emptyIdxs[Math.floor(Math.random() * emptyIdxs.length)];
+                        board[aiChoice] = '⭕';
+                        res = checkWinner();
+                        if (res) { handleEnd(res); return; }
+                    }
+                } else {
+                    turn = turn === '❌' ? '⭕' : '❌';
+                }
+                render();
+            };
+
+            function handleEnd(res) {
+                render();
+                setTimeout(() => {
+                    if (res === '❌' || (is2P && res === '⭕')) {
+                        sound.playWinFanfare();
+                        addStars(20);
+                        stage.innerHTML = `
+                            <div class="text-center space-y-4">
+                                <h3 class="text-3xl font-black text-yellow-400">ניצחון! 🎉</h3>
+                                <p>זכית ב-20 כוכבים!</p>
+                                <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                            </div>
+                        `;
+                    } else if (res === '⭕') {
+                        sound.playFail();
+                        stage.innerHTML = `
+                            <div class="text-center space-y-4">
+                                <h3 class="text-3xl font-black text-red-400">המחשב ניצח! ⭕</h3>
+                                <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">נסה שוב</button>
+                            </div>
+                        `;
+                    } else {
+                        stage.innerHTML = `
+                            <div class="text-center space-y-4">
+                                <h3 class="text-3xl font-black text-gray-300">תיקו! 🤝</h3>
+                                <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">שחק שוב</button>
+                            </div>
+                        `;
+                    }
+                }, 300);
+            }
+
+            render();
+        }
+
+        /* ------------------------------------------
+           GAME 6: REFLEX REACTION TEST
+           ------------------------------------------ */
+        function runReactionGame(stage) {
+            let state = 'WAIT';
+            let startTime = 0;
+            let timer = null;
+
+            function render() {
+                if (state === 'WAIT') {
+                    stage.innerHTML = `
+                        <button onclick="startReflex()" class="w-full h-80 bg-brand-purple rounded-3xl flex flex-col items-center justify-center space-y-3 cursor-pointer btn-bounce">
+                            <i class="fa-solid fa-play text-5xl"></i>
+                            <span class="text-2xl font-black">לחץ כדי להתחיל במבחן</span>
+                        </button>
+                    `;
+                } else if (state === 'READY') {
+                    stage.innerHTML = `
+                        <div class="w-full h-80 bg-red-600 rounded-3xl flex flex-col items-center justify-center space-y-3">
+                            <span class="text-3xl font-black">חכה לירוק... 🛑</span>
+                        </div>
+                    `;
+                } else if (state === 'CLICK') {
+                    stage.innerHTML = `
+                        <button onclick="finishReflex()" class="w-full h-80 bg-green-500 rounded-3xl flex flex-col items-center justify-center space-y-3 cursor-pointer animate-pulse">
+                            <span class="text-4xl font-black">לחץ עכשיו! ⚡</span>
+                        </button>
+                    `;
+                }
+            }
+
+            window.startReflex = function() {
+                state = 'READY';
+                render();
+                const delay = Math.floor(Math.random() * 3000) + 2000;
+                timer = setTimeout(() => {
+                    state = 'CLICK';
+                    startTime = Date.now();
+                    render();
+                }, delay);
+            };
+
+            window.finishReflex = function() {
+                const diff = Date.now() - startTime;
+                sound.playWinFanfare();
+                addStars(20);
+                stage.innerHTML = `
+                    <div class="text-center space-y-4">
+                        <h3 class="text-3xl font-black text-yellow-400">מהיר כמו ברק! ⚡</h3>
+                        <p class="text-2xl font-bold text-cyan-300">זמן תגובה: ${diff} מילישניות!</p>
+                        <p>זכית ב-20 כוכבים!</p>
+                        <button onclick="restartCurrentGame()" class="bg-brand-purple px-6 py-3 rounded-2xl font-bold btn-bounce">נסה שוב</button>
+                    </div>
+                `;
+            };
+
+            render();
+        }
+
+        /* ------------------------------------------
+           GAME 7: STROOP COLOR MATCH
+           ------------------------------------------ */
+        function runColorMatchGame(stage) {
+            const colors = [
+                { name: 'אדום', css: 'text-red-500' },
+                { name: 'ירוק', css: 'text-green-500' },
+                { name: 'כחול', css: 'text-blue-500' },
+                { name: 'צהוב', css: 'text-yellow-400' }
+            ];
+
+            let score = 0;
+            let currentItem = {};
+
+            function nextColor() {
+                const textObj = colors[Math.floor(Math.random() * colors.length)];
+                const colorObj = colors[Math.floor(Math.random() * colors.length)];
+                const match = Math.random() > 0.5;
+
+                const actualColorCss = match ? textObj.css : colorObj.css;
+                currentItem = { text: textObj.name, isMatch: match };
+
+                stage.innerHTML = `
+                    <div class="text-center space-y-6 w-full max-w-md">
+                        <div class="flex justify-between font-bold">
+                            <span>ניקוד: <span class="text-yellow-400 text-lg">${score}</span></span>
+                            <span>יעד: 50</span>
+                        </div>
+                        <div class="bg-black/30 p-10 rounded-3xl border border-white/20">
+                            <span class="text-xs opacity-75 block mb-2">האם צבע הגופן תואם למילה?</span>
+                            <h3 class="text-5xl font-black ${actualColorCss}">${textObj.name}</h3>
+                        </div>
+                        <div class="flex gap-4">
+                            <button onclick="checkColor(true)" class="flex-1 bg-green-600 hover:bg-green-500 py-4 rounded-2xl font-black text-xl btn-bounce">נכון 👍</button>
+                            <button onclick="checkColor(false)" class="flex-1 bg-red-600 hover:bg-red-500 py-4 rounded-2xl fon
